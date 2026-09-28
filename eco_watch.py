@@ -7,6 +7,7 @@
 import json
 import os
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
 from datetime import date, timedelta
@@ -89,12 +90,30 @@ def send_telegram(text: str) -> None:
     if not token or not chat_id:
         print("[알림 미설정]\n" + text)
         return
-    body = json.dumps({"chat_id": chat_id, "text": text,
-                       "disable_web_page_preview": True}).encode()
-    req = urllib.request.Request(
-        f"https://api.telegram.org/bot{token}/sendMessage",
-        data=body, headers={"Content-Type": "application/json"})
-    urllib.request.urlopen(req, timeout=15)
+    # 텔레그램은 한 메시지 4096자 제한 → 나눠서 보냄
+    chunks, cur = [], ""
+    for block in text.split("\n\n"):
+        if len(cur) + len(block) + 2 > 3500:
+            chunks.append(cur)
+            cur = ""
+        cur = (cur + "\n\n" + block) if cur else block
+    if cur:
+        chunks.append(cur)
+
+    for i, chunk in enumerate(chunks, 1):
+        if len(chunks) > 1:
+            chunk = f"({i}/{len(chunks)})\n" + chunk
+        body = json.dumps({"chat_id": chat_id.strip(), "text": chunk,
+                           "disable_web_page_preview": True}).encode()
+        req = urllib.request.Request(
+            f"https://api.telegram.org/bot{token.strip()}/sendMessage",
+            data=body, headers={"Content-Type": "application/json"})
+        try:
+            urllib.request.urlopen(req, timeout=15)
+        except urllib.error.HTTPError as e:
+            print(f"[텔레그램 오류] {e.code}: {e.read().decode('utf-8', 'ignore')}")
+            raise
+        time.sleep(1)
 
 
 def main() -> None:
