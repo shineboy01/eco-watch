@@ -1,1 +1,10 @@
-
+{"name": "생태탐방원 빈자리 감시",
+"on": {"schedule": [{"cron": "*/10 * * * *"}], "workflow_dispatch": {}},
+"concurrency": {"group": "eco-watch", "cancel-in-progress": false},
+"permissions": {"contents": "write"},
+"jobs": {"watch": {"runs-on": "ubuntu-latest", "timeout-minutes": 8, "steps": [
+{"uses": "actions/checkout@v4"},
+{"uses": "actions/setup-python@v5", "with": {"python-version": "3.12"}},
+{"name": "빈자리 확인", "env": {"TELEGRAM_BOT_TOKEN": "${{ secrets.TELEGRAM_BOT_TOKEN }}", "TELEGRAM_CHAT_ID": "${{ secrets.TELEGRAM_CHAT_ID }}"}, "run": "python -u eco_watch.py"},
+{"name": "상태 저장", "run": "git config user.name github-actions && git config user.email github-actions@users.noreply.github.com && git add state.json && (git diff --staged --quiet || (git commit -m update-state && git push))"}
+]}}}
